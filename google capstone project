@@ -1,0 +1,183 @@
+###Google Final Project Bike FVR###
+#load tidyverse & import database(can use importdataset from rstudio menu and then assign data to object with a name)
+library(tidyverse)
+tripdata_202004 <- read_csv("202004-divvy-tripdata.csv")
+tripdata_202005 <- read_csv("202005-divvy-tripdata.csv")
+tripdata_202006 <- read_csv("202006-divvy-tripdata.csv")
+tripdata_202007 <- read_csv("202007-divvy-tripdata.csv")
+tripdata_202008 <- read_csv("202008-divvy-tripdata.csv")
+tripdata_202009 <- read_csv("202009-divvy-tripdata.csv")
+tripdata_202010 <- read_csv("202010-divvy-tripdata.csv")
+tripdata_202011 <- read_csv("202011-divvy-tripdata.csv")
+tripdata_202012 <- read_csv("202012-divvy-tripdata.csv")
+tripdata_202101 <- read_csv("202101-divvy-tripdata.csv")
+tripdata_202102 <- read_csv("202102-divvy-tripdata.csv")
+tripdata_202103 <- read_csv("202103-divvy-tripdata.csv")
+tripdata_202104 <- read_csv("202104-divvy-tripdata.csv")
+tripdata_202105 <- read_csv("202105-divvy-tripdata.csv")
+tripdata_202106 <- read_csv("202106-divvy-tripdata.csv")
+tripdata_202107 <- read_csv("202107-divvy-tripdata.csv")
+
+
+
+
+
+#merge database(alla database have the same variables, so we can use rbind function)
+tripdata_total <- rbind(tripdata_202004,
+                        tripdata_202005,
+                        tripdata_202006,
+                        tripdata_202007,
+                        tripdata_202008,
+                        tripdata_202009,
+                        tripdata_202010,
+                        tripdata_202011,
+                        tripdata_202012,
+                        tripdata_202101,
+                        tripdata_202102,
+                        tripdata_202103,
+                        tripdata_202104,
+                        tripdata_202105,
+                        tripdata_202106,
+                        tripdata_202107)
+                  
+
+#save datafram into tibble
+as_tibble(tripdata_total)
+view(tripdata_total)
+#first look at data
+glimpse(tripdata_total)
+#count how many rows are present 
+nrow(tripdata_total)
+#remove duplicated from id column 
+tripdata_total_clean1<- tripdata_total[!duplicated(tripdata_total$ride_id), ]
+#check if duplicate succesfully removed(result should be <= 0)
+nrow(tripdata_total)-nrow(tripdata_total_clean1)
+#parsing colum (started at) from date+time to year+month+day+hour+minute+seconds using lubridate pakage
+library(lubridate)
+tripdata_total_clean1$started_at <- as.POSIXct(tripdata_total_clean1$started_at, "%Y-%m-%d %H:%M:%S" )
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(started_year_month = paste(strftime(tripdata_total_clean1$started_at, "%Y"),
+                            "-",
+                            strftime(tripdata_total_clean1$started_at, "%m")))
+
+tripdata_total_clean1$ended_at <- as.POSIXct(tripdata_total_clean1$ended_at, "%Y-%m-%d %H:%M:%S" )
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(ended_year_month = paste(strftime(tripdata_total_clean1$ended_at, "%Y"),
+                                    "-",
+                                    strftime(tripdata_total_clean1$ended_at, "%m")))
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(started_day = paste(strftime(tripdata_total_clean1$started_at, "%u"),
+                                    "-",
+                                    strftime(tripdata_total_clean1$started_at, "%a"))) 
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(ended_day = paste(strftime(tripdata_total_clean1$ended_at, "%u"),
+                             "-",
+                             strftime(tripdata_total_clean1$ended_at, "%a"))) 
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(started_hour = paste(strftime(tripdata_total_clean1$started_at, "%H")))
+
+tripdata_total_clean1 <- tripdata_total_clean1 %>%
+  mutate(ended_hour = paste(strftime(tripdata_total_clean1$ended_at, "%H")))
+
+tripdata_total_clean1$started_hour<- as.numeric(as.character(tripdata_total_clean1$started_hour))
+tripdata_total_clean1$ended_hour<- as.numeric(as.character(tripdata_total_clean1$ended_hour))
+#we can calculate a new variable indicating the lenght of the bike ride taken by customers
+
+tripdata_total_clean1<- tripdata_total_clean1 %>%
+  mutate(ride_lenght_time= as.numeric(tripdata_total_clean1$ended_at - tripdata_total_clean1$started_at) / 60)
+
+summary(tripdata_total_clean1$ride_lenght_time)
+
+#check if data show uncorrect observations, like started date bigger than finished date
+tripdata_total_clean1%>%
+  filter(started_at > ended_at) %>%
+  select(ride_id)
+#appear that some uncorrect observations are in the data, so let's drop them for now
+tripdata_total_clean1<- tripdata_total_clean1%>%
+  filter(started_at < ended_at)
+
+#check for missing value
+mean(is.na(tripdata_total_clean1))
+sum(is.na(tripdata_total_clean1))
+#since it's just a practice, we can remove observation that contains missing values
+tripdata_total_clean1 <-na.omit(tripdata_total_clean1)
+#we can now save the final clean dataframe
+tripdata_total_clean1 %>%
+  write.csv("tripdata_total_clean1.csv")
+
+#let's explore our data and visualize them
+tripdata_total_clean1 %>%
+  group_by(member_casual, rideable_type, ended_year_month, ended_day, started_hour) %>%
+  summarise(count = length(ride_id)/ nrow(tripdata_total_clean1)*100,
+            meanlenght = mean(ride_lenght_time))
+
+tripdata_total_clean1 %>%
+  ggplot(aes(ended_day, fill= member_casual)) +
+  geom_bar() +
+  coord_flip()
+
+tripdata_total_clean1 %>%
+  ggplot(aes(ended_year_month, fill= member_casual)) +
+  geom_bar() +
+  coord_flip()
+
+tripdata_total_clean1 %>%
+  ggplot(aes(started_hour, fill= member_casual)) +
+  geom_bar() 
+
+tripdata_total_clean1 %>%
+  ggplot(aes(started_hour, fill= member_casual)) +
+  geom_bar() +
+  facet_wrap(~ ended_day )
+
+tripdata_total_clean1 %>%
+  group_by(rideable_type,) %>%
+  summarise(
+    '%' = (length(ride_id)/ nrow(tripdata_total_clean1)) *100,
+                    'member' = (sum(member_casual == "member") / length(ride_id)) * 100,
+                                'casuals' = (sum(member_casual == "casual") / length(ride_id)) * 100)
+                    
+                    
+                    
+                    
+            tripdata_total_clean1 %>%
+                      group_by(rideable_type) %>% 
+                      summarise(count = length(ride_id),
+                                '%' = (length(ride_id) / nrow(tripdata_total_clean1)) * 100,
+                                'members_p' = (sum(member_casual == "member") / length(ride_id)) * 100,
+                                'casual_p' = (sum(member_casual == "casual") / length(ride_id)) * 100)   
+            
+            ggplot(tripdata_total_clean1, aes(rideable_type, fill=member_casual)) +
+              labs(x="Rideable type", title="Chart 07 - Distribution of types of bikes") +
+              geom_bar() +
+              coord_flip()
+            
+            
+            tripdata_total_clean1 %>%
+              group_by(rideable_type,ended_year_month) %>% 
+              summarise(count = length(ride_id),
+                        '%' = (length(ride_id) / nrow(tripdata_total_clean1)) * 100,
+                        'members_p' = (sum(member_casual == "member") / length(ride_id)) * 100,
+                        'casual_p' = (sum(member_casual == "casual") / length(ride_id)) * 100)  
+            
+            
+            
+            
+            tripdata_total_clean1 %>%
+              group_by(rideable_type,ended_year_month) %>% 
+              summarise(count = length(ride_id),
+                        'average_duration' = (mean(ride_lenght_time)),
+                        '%' = (length(ride_id) / nrow(tripdata_total_clean1)) * 100,
+                        'members_p' = (sum(member_casual == "member") / length(ride_id)) * 100,
+                        'casual_p' = (sum(member_casual == "casual") / length(ride_id)) * 100) %>%
+             View()
+            
+            
+            
+ggplot(tripdata_total_clean1, aes(x= member_casual, y= ride_lenght_time, fill=member_casual)) +
+  geom_boxplot()
